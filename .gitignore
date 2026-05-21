@@ -179,3 +179,78 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# ============================================================
+# Audio ML / KWS project additions
+# ============================================================
+
+# Raw datasets — Speech Commands is ~6 GB extracted, never commit
+data/raw/
+data/processed/
+data/cache/
+data/interim/
+data/my_recordings/
+
+# Common dataset archives
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+
+# Keep a small sample set under version control for demos / CI
+!data/samples/
+!data/samples/**
+
+# Model checkpoints and exported models
+checkpoints/
+saved_models/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.tflite
+*.pb
+*.h5
+*.pkl
+*.joblib
+
+# Experiment tracking / training logs
+runs/
+lightning_logs/
+wandb/
+mlruns/
+mlartifacts/
+tensorboard_logs/
+outputs/
+
+# Audio files generated during experiments (not in samples/)
+generated/
+*.wav
+*.flac
+*.mp3
+*.ogg
+!data/samples/**/*.wav
+!data/samples/**/*.flac
+
+# Profiling
+*.prof
+*.lprof
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# VSCode — keep shared workspace settings but ignore personal overrides
+.vscode/settings.local.json
+.vscode/*.code-workspace
+.history/
+
+# Secrets / API keys (W&B, HuggingFace, etc.)
+.env
+.env.local
+.env.*.local
+*.key
+secrets/
