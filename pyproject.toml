@@ -1,0 +1,5 @@
+[project]
+name = "my_KWS"
+version = "0.1.0"
+description = "keyword spotting program"
+readme = "README.md"
