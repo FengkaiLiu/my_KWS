@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "D:\\Program Files (x86)\\LearnMLDSP\\my_KWS\\.venv\\Scripts\\python.exe",
+    "python.analysis.extraPaths": ["D:\\Program Files (x86)\\LearnMLDSP\\my_KWS\\src"]
+}
