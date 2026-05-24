@@ -37,10 +37,33 @@ def load_audio(
     if len(data) > target_n:
         data = data[:target_n]
     elif len(data) < target_n:
-        np.pad(data, (0, target_n - len(data)), mode='constant')
+        data = np.pad(data, (0, target_n - len(data)), mode='constant')
 
     return data
 
+
+#Root mean square
+def rms(x : np.ndarray) -> float:
+    return float(np.sqrt(np.mean(x**2)))
+
+#Signal Noise Ratio SNR
+def snr_db(signal: np.ndarray, noise: np.ndarray) -> float:
+    #formula: 20 * log10(rms_signal / rms_noise)
+    epsilon = 1e-10
+    return 20 * np.log10(rms(signal) / (rms(noise) + epsilon))
+
 if __name__ == "__main__":
-    x = load_audio(r"D:\Downloads\oboe_samples\oboe_samples\Ob-ord-A4-mf.wav", 16000, True, 1.0)
+    x = load_audio(r"D:\learnMLDSP\edgeaudio-ml\data\raw\esc50\audio\1-100032-A-0.wav", 16000, True, 1.0)
     assert len(x) == int(16000 * 1.0)
+
+    # rms of silence == 0
+    print(rms(np.zeros(1000)))                          # → 0.0
+
+    # rms of unit-amplitude sine ≈ 1/sqrt(2) ≈ 0.707
+    t = np.arange(16000) / 16000
+    sine = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+    print(rms(sine))                                    # → ~0.707
+
+    # snr of signal vs itself → 0 dB (same amplitude)
+    # snr of signal vs 0.1*signal → 20 dB (amplitude 10x → 20 log10(10) = 20)
+    print(snr_db(sine, 0.1 * sine))                     # → 20.0
