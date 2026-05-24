@@ -21,6 +21,10 @@ def load_audio(
     #convert to float32
     data = data.astype(np.float32)
 
+    #check if mono
+    if mono and data.ndim == 2:
+        data = data.mean(axis=1)
+
     #resample (if sr != target_sr)
     if sr != target_sr:
         waveform = torch.from_numpy(data).unsqueeze(0) #shape: (1, n_samples)
