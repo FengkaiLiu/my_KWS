@@ -30,10 +30,17 @@ def load_audio(
         waveform = torch.from_numpy(data).unsqueeze(0) #shape: (1, n_samples)
         waveform = AF.resample(waveform, sr, target_sr)
         data = waveform.squeeze(0).numpy() #back to (n_samples,)
-
     print(f"after resample: shape={data.shape}, sr={target_sr}")
-    
+
+    #pad / crop
+    target_n = int(target_sr * target_length_s)
+    if len(data) > target_n:
+        data = data[:target_n]
+    elif len(data) < target_n:
+        np.pad(data, (0, target_n - len(data)), mode='constant')
+
     return data
 
 if __name__ == "__main__":
     x = load_audio(r"D:\Downloads\oboe_samples\oboe_samples\Ob-ord-A4-mf.wav", 16000, True, 1.0)
+    assert len(x) == int(16000 * 1.0)
