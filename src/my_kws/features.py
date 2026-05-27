@@ -32,10 +32,30 @@ def window(frames: np.ndarray, window_type: str = "hann") -> np.ndarray:
     
     return frames * w
     
+#Short time fourier transform
 def stft(waveform: np.ndarray, n_fft: int = 512, hop_length: int = 160, win_length: int = 400) -> np.ndarray:
+    frames = frame(waveform, win_length, hop_length)
+
+    frames = window(frames)
+
+    padded = np.zeros((frames.shape[0], n_fft), dtype=frames.dtype)
+    padded[:, :win_length] = frames
+
+    spectrum = np.fft.rfft(padded, axis=1).astype(np.complex64)
+
+    return spectrum
+
+#Melspectrogram
+def mel_filterbank(sr: int, n_fft: int, n_mels: int) -> np.ndarray:
+    return 0
+
+def hz_to_mel(f):
+    mel = 2595 * log10(1 + f / 700)
+    return mel
     
-    
-    
+def mel_to_hz(m):
+    hz = 700 * (10^(m / 2595) - 1)
+    return hz
 
 if __name__ == "__main__":
     x = np.arange(16000, dtype=np.float32)
@@ -45,19 +65,24 @@ if __name__ == "__main__":
     print(f[1, :3])     #Expected [160. 161. 162.]
     print(f[-1, -1])    #Expected 15919
 
-    # 窗本身两端为 0
+    # 0 by default
     N = 400
     n = np.arange(N)
     w = 0.5 * (1 - np.cos(2 * np.pi * n / (N - 1)))
     print(w[0], w[-1], w[(N-1)//2])      # → 0.0, 0.0, ≈1.0
 
-    # 加窗后两端衰减到 0
+    # windowing
     ones = np.ones((1, 400), dtype=np.float32)
     wf = window(ones)
     print(wf[0, 0], wf[0, -1])           # → 0.0, 0.0
     print(wf[0, 199], wf[0, 200])        # → ≈1.0, ≈1.0 (中点附近)
 
-    # dtype 验证（修完细节 1 后）
+    # dtype 
     print(wf.dtype)                       # → float32 ✓ (修之前会是 float64)
+
+    #stft
+    S = stft(np.arange(16000, dtype=np.float32))
+    print(S.shape) # Expected (98, 257)
+    print(S.dtype) # Expected complex64/complex128
 
 
