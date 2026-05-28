@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 #MelSpectrogram from scratch
 
@@ -46,16 +46,42 @@ def stft(waveform: np.ndarray, n_fft: int = 512, hop_length: int = 160, win_leng
     return spectrum
 
 #Melspectrogram
-def mel_filterbank(sr: int, n_fft: int, n_mels: int) -> np.ndarray:
-    return 0
-
 def hz_to_mel(f):
-    mel = 2595 * log10(1 + f / 700)
+    mel = 2595 * np.log10(1 + f / 700)
     return mel
     
 def mel_to_hz(m):
-    hz = 700 * (10^(m / 2595) - 1)
+    hz = 700 * (10**(m / 2595) - 1)
     return hz
+
+def mel_filterbank(sr: int, n_fft: int, n_mels: int, f_min: float = 0.0, f_max: float | None = None) -> np.ndarray:
+    low_mel = hz_to_mel(0)
+    high_mel = hz_to_mel(sr/2)
+    fb = np.zeros((n_mels, n_fft // 2 + 1), dtype = np.float32)
+    mel_points = np.linspace(low_mel, high_mel, n_mels + 2)
+
+    #mel -> Hz -> FFT
+    hz_points = mel_to_hz(mel_points)
+    bins = hz_points * n_fft / sr
+
+    #for each triangle i
+    for i in range (n_mels):
+        f_left = bins[i]
+        f_center = bins[i+1]
+        f_right = bins[i+2]
+    
+        #for every FFT bin k, fb[i, k]
+        for k in range(n_fft // 2+1):
+            if k < f_left:
+                fb[i, k] = 0.0
+            elif k < f_center:
+                fb[i, k] = (k - f_left) / (f_center - f_left)
+            elif k < f_right:
+                fb[i, k] = (f_right - k) / (f_right - f_center)
+            else:
+                fb[i, k] = 0.0
+
+    return fb
 
 if __name__ == "__main__":
     x = np.arange(16000, dtype=np.float32)
@@ -85,4 +111,9 @@ if __name__ == "__main__":
     print(S.shape) # Expected (98, 257)
     print(S.dtype) # Expected complex64/complex128
 
+    print(hz_to_mel(0))
+    print(mel_to_hz(hz_to_mel(1000)))
 
+    fb = mel_filterbank(16000, 512, 40)
+    plt.plot(fb.T)
+    plt.show()
