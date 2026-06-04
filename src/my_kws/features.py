@@ -83,6 +83,23 @@ def mel_filterbank(sr: int, n_fft: int, n_mels: int, f_min: float = 0.0, f_max: 
 
     return fb
 
+def log_mel_spectrogram(
+        waveform: np.ndarray,
+        sr: int = 16000,
+        n_fft: int = 512,
+        hop_length: int = 160,
+        win_length: int = 400,
+        n_mels: int = 40,
+        eps: float = 1e-10,
+) -> np.ndarray:
+    thestft = stft(waveform, n_fft, hop_length, win_length)
+    power_spec = np.abs(thestft)**2
+    mel_fb = mel_filterbank(sr, n_fft, n_mels)
+    mel_spec = power_spec @ mel_fb.T
+    log_mel = np.log(mel_spec + eps)
+
+    return log_mel
+
 if __name__ == "__main__":
     x = np.arange(16000, dtype=np.float32)
     f = frame(x, 400, 160)
@@ -117,3 +134,20 @@ if __name__ == "__main__":
     fb = mel_filterbank(16000, 512, 40)
     plt.plot(fb.T)
     plt.show()
+
+    #mel-spectrogram (Shape Inspect)
+    x = np.random.randn(16000).astype(np.float32)
+    log_mel = log_mel_spectrogram(x)
+    print(log_mel.shape) # (98, 40)
+    print(log_mel.dtype) # float32
+
+    #signal visualization
+    t = np.arange(16000) / 16000
+    sine = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+    log_mel = log_mel_spectrogram(sine)
+    plt.imshow(log_mel.T, origin='lower', aspect='auto')
+    plt.xlabel('frame') 
+    plt.ylabel('mel bin')
+    plt.colorbar()
+    plt.show()
+
