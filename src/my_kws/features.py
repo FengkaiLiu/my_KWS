@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torchaudio.transforms as T
+import torch
+import scipy.fft
 
 #MelSpectrogram from scratch
 
@@ -100,6 +103,10 @@ def log_mel_spectrogram(
 
     return log_mel
 
+def mfcc(log_mel:np.ndarray, n_mfcc:int = 13) -> np.ndarray:
+    dct_coef = scipy.fft.dct(log_mel, type=2, norm='ortho', axis=1)
+    return dct_coef[:, :n_mfcc]
+
 if __name__ == "__main__":
     x = np.arange(16000, dtype=np.float32)
     f = frame(x, 400, 160)
@@ -151,3 +158,14 @@ if __name__ == "__main__":
     plt.colorbar()
     plt.show()
 
+    #mel/mfcc
+    log_mel = log_mel_spectrogram(np.random.randn(16000).astype(np.float32))
+    print(log_mel.shape)    #(98, 40)
+
+    m = mfcc(log_mel)
+    print(m.shape)          #(98, 13)
+    print(m.dtype)          #float32
+
+    plt.imshow(m.T, aspect='auto')
+    plt.colorbar()
+    plt.show()
