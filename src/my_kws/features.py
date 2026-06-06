@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import torchaudio.transforms as T
 import torch
 import scipy.fft
+import torchaudio.functional as F
 
 #MelSpectrogram from scratch
 
@@ -168,4 +169,83 @@ if __name__ == "__main__":
 
     plt.imshow(m.T, aspect='auto')
     plt.colorbar()
+    plt.show()
+
+    #numpy : torchAudio
+        #input
+    waveform_np = np.random.randn(16000).astype(np.float32)
+    waveform_t = torch.from_numpy(waveform_np)
+
+        #numpy ver
+    log_mel_np = log_mel_spectrogram(
+        waveform_np, sr=16000, n_fft=512,
+        hop_length=160, win_length=400, n_mels=40, eps=1e-10,
+    ) #(98,40)
+
+        #torchAudio ver
+    mel_transform = T.MelSpectrogram(
+        sample_rate=16000,
+        n_fft=512,
+        hop_length=160,
+        win_length=400,
+        n_mels=40,
+        power=2.0,          #power spectrogram (|.|^2)
+        center=False,
+        norm=None,
+        mel_scale='htk',
+        window_fn=torch.hann_window,
+        wkwargs={'periodic': False}
+    )
+    mel_t = mel_transform(waveform_t)               #(40, n_frames)
+    log_mel_ta = torch.log(mel_t + 1e-10).numpy().T #(n_frames, 40)
+    log_mel_np_aligned = log_mel_np[:-1]            #(97, 40)
+
+        #compare
+    print("shape:", log_mel_np.shape, log_mel_ta.shape)
+    print("max abs diff:", np.max(np.abs(log_mel_np_aligned - log_mel_ta)))
+    print("mean abs diff:", np.mean(np.abs(log_mel_np_aligned - log_mel_ta)))
+
+        #sinewave compare
+    t = np.arange(16000) / 16000
+    sine = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+
+    log_mel_np = log_mel_spectrogram(sine)[:-1]
+    log_mel_ta = torch.log(mel_transform(torch.from_numpy(sine)) + 1e-10).numpy().T
+
+    print("sine max abs diff:", np.max(np.abs(log_mel_np - log_mel_ta)))
+    print("sine mean abs diff:", np.mean(np.abs(log_mel_np - log_mel_ta)))
+
+    diff = np.abs(log_mel_np - log_mel_ta)   # (97, 40)
+
+    # biggest diff for each frame
+    plt.figure(figsize=(10, 3))
+    plt.plot(diff.max(axis=1))
+    plt.xlabel('frame'); plt.ylabel('max |diff|')
+    plt.title('per-frame max diff')
+    plt.show()
+
+    # biggest diff for every mel bin
+    plt.figure(figsize=(10, 3))
+    plt.plot(diff.max(axis=0))
+    plt.xlabel('mel bin'); plt.ylabel('max |diff|')
+    plt.title('per-mel-bin max diff')
+    plt.show()
+
+    # difference of the middle frame (avoid the edge)
+    print("middle frames mean diff:", diff[10:-10].mean())
+
+        #test filterbank
+    my_fb = mel_filterbank(16000, 512, 40)              # (40, 257)
+    ta_fb = F.melscale_fbanks(
+    n_freqs=257, f_min=0.0, f_max=8000.0, n_mels=40,
+    sample_rate=16000, norm=None, mel_scale='htk',
+    ).numpy().T                                          # (40, 257)
+
+    print("mel_fb max abs diff:", np.max(np.abs(my_fb - ta_fb)))
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    axes[0].imshow(log_mel_np[:-1].T, origin='lower', aspect='auto')
+    axes[0].set_title('numpy from-scratch')
+    axes[1].imshow(log_mel_ta.T, origin='lower', aspect='auto')
+    axes[1].set_title('torchaudio')
     plt.show()
