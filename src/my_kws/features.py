@@ -108,6 +108,9 @@ def mfcc(log_mel:np.ndarray, n_mfcc:int = 13) -> np.ndarray:
     dct_coef = scipy.fft.dct(log_mel, type=2, norm='ortho', axis=1)
     return dct_coef[:, :n_mfcc]
 
+
+
+    #TEST
 if __name__ == "__main__":
     x = np.arange(16000, dtype=np.float32)
     f = frame(x, 400, 160)
@@ -126,10 +129,10 @@ if __name__ == "__main__":
     ones = np.ones((1, 400), dtype=np.float32)
     wf = window(ones)
     print(wf[0, 0], wf[0, -1])           # → 0.0, 0.0
-    print(wf[0, 199], wf[0, 200])        # → ≈1.0, ≈1.0 (中点附近)
+    print(wf[0, 199], wf[0, 200])        # → ≈1.0, ≈1.0
 
     # dtype 
-    print(wf.dtype)                       # → float32 ✓ (修之前会是 float64)
+    print(wf.dtype)                       # → float32
 
     #stft
     S = stft(np.arange(16000, dtype=np.float32))
@@ -227,7 +230,8 @@ if __name__ == "__main__":
     # biggest diff for every mel bin
     plt.figure(figsize=(10, 3))
     plt.plot(diff.max(axis=0))
-    plt.xlabel('mel bin'); plt.ylabel('max |diff|')
+    plt.xlabel('mel bin')
+    plt.ylabel('max |diff|')
     plt.title('per-mel-bin max diff')
     plt.show()
 
