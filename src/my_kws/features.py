@@ -99,14 +99,15 @@ def log_mel_spectrogram(
     thestft = stft(waveform, n_fft, hop_length, win_length)
     power_spec = np.abs(thestft)**2
     mel_fb = mel_filterbank(sr, n_fft, n_mels)
-    mel_spec = power_spec @ mel_fb.T
-    log_mel = np.log(mel_spec + eps)
+    mel_spec = power_spec @ mel_fb.T        # (n_frames, n_mels)
+    log_mel = np.log(mel_spec + eps)        # (n_frames, n_mels)
 
-    return log_mel
+    return log_mel.T                        # (n_mels, n_frames) e.g. (40, 98)
 
 def mfcc(log_mel:np.ndarray, n_mfcc:int = 13) -> np.ndarray:
-    dct_coef = scipy.fft.dct(log_mel, type=2, norm='ortho', axis=1)
-    return dct_coef[:, :n_mfcc]
+    # log_mel is (n_mels, n_frames); DCT along the mel axis (axis=0)
+    dct_coef = scipy.fft.dct(log_mel, type=2, norm='ortho', axis=0)
+    return dct_coef[:n_mfcc, :]             # (n_mfcc, n_frames) e.g. (13, 98)
 
 
 
@@ -149,28 +150,28 @@ if __name__ == "__main__":
     #mel-spectrogram (Shape Inspect)
     x = np.random.randn(16000).astype(np.float32)
     log_mel = log_mel_spectrogram(x)
-    print(log_mel.shape) # (98, 40)
+    print(log_mel.shape) # (40, 98)
     print(log_mel.dtype) # float32
 
     #signal visualization
     t = np.arange(16000) / 16000
     sine = np.sin(2 * np.pi * 440 * t).astype(np.float32)
     log_mel = log_mel_spectrogram(sine)
-    plt.imshow(log_mel.T, origin='lower', aspect='auto')
-    plt.xlabel('frame') 
+    plt.imshow(log_mel, origin='lower', aspect='auto')   # already (mel, frame)
+    plt.xlabel('frame')
     plt.ylabel('mel bin')
     plt.colorbar()
     plt.show()
 
     #mel/mfcc
     log_mel = log_mel_spectrogram(np.random.randn(16000).astype(np.float32))
-    print(log_mel.shape)    #(98, 40)
+    print(log_mel.shape)    #(40, 98)
 
     m = mfcc(log_mel)
-    print(m.shape)          #(98, 13)
+    print(m.shape)          #(13, 98)
     print(m.dtype)          #float32
 
-    plt.imshow(m.T, aspect='auto')
+    plt.imshow(m, aspect='auto')   # already (mfcc, frame)
     plt.colorbar()
     plt.show()
 
@@ -183,7 +184,7 @@ if __name__ == "__main__":
     log_mel_np = log_mel_spectrogram(
         waveform_np, sr=16000, n_fft=512,
         hop_length=160, win_length=400, n_mels=40, eps=1e-10,
-    ) #(98,40)
+    ) #(40, 98)
 
         #torchAudio ver
     mel_transform = T.MelSpectrogram(
@@ -200,8 +201,8 @@ if __name__ == "__main__":
         wkwargs={'periodic': False}
     )
     mel_t = mel_transform(waveform_t)               #(40, n_frames)
-    log_mel_ta = torch.log(mel_t + 1e-10).numpy().T #(n_frames, 40)
-    log_mel_np_aligned = log_mel_np[:-1]            #(97, 40)
+    log_mel_ta = torch.log(mel_t + 1e-10).numpy()   #(40, 97)  mel-major, no transpose
+    log_mel_np_aligned = log_mel_np[:, :-1]         #(40, 97)  drop last frame (axis=1)
 
         #compare
     print("shape:", log_mel_np.shape, log_mel_ta.shape)
@@ -212,31 +213,31 @@ if __name__ == "__main__":
     t = np.arange(16000) / 16000
     sine = np.sin(2 * np.pi * 440 * t).astype(np.float32)
 
-    log_mel_np = log_mel_spectrogram(sine)[:-1]
-    log_mel_ta = torch.log(mel_transform(torch.from_numpy(sine)) + 1e-10).numpy().T
+    log_mel_np = log_mel_spectrogram(sine)[:, :-1]  #(40, 97)
+    log_mel_ta = torch.log(mel_transform(torch.from_numpy(sine)) + 1e-10).numpy()  #(40, 97)
 
     print("sine max abs diff:", np.max(np.abs(log_mel_np - log_mel_ta)))
     print("sine mean abs diff:", np.mean(np.abs(log_mel_np - log_mel_ta)))
 
-    diff = np.abs(log_mel_np - log_mel_ta)   # (97, 40)
+    diff = np.abs(log_mel_np - log_mel_ta)   # (40, 97)
 
     # biggest diff for each frame
     plt.figure(figsize=(10, 3))
-    plt.plot(diff.max(axis=1))
+    plt.plot(diff.max(axis=0))               # axis=0 now = mel; max over mel -> per-frame
     plt.xlabel('frame'); plt.ylabel('max |diff|')
     plt.title('per-frame max diff')
     plt.show()
 
     # biggest diff for every mel bin
     plt.figure(figsize=(10, 3))
-    plt.plot(diff.max(axis=0))
+    plt.plot(diff.max(axis=1))               # axis=1 now = frame; max over frame -> per-mel
     plt.xlabel('mel bin')
     plt.ylabel('max |diff|')
     plt.title('per-mel-bin max diff')
     plt.show()
 
-    # difference of the middle frame (avoid the edge)
-    print("middle frames mean diff:", diff[10:-10].mean())
+    # difference of the middle frames (avoid the edge)
+    print("middle frames mean diff:", diff[:, 10:-10].mean())
 
         #test filterbank
     my_fb = mel_filterbank(16000, 512, 40)              # (40, 257)
@@ -248,8 +249,8 @@ if __name__ == "__main__":
     print("mel_fb max abs diff:", np.max(np.abs(my_fb - ta_fb)))
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    axes[0].imshow(log_mel_np[:-1].T, origin='lower', aspect='auto')
+    axes[0].imshow(log_mel_np, origin='lower', aspect='auto')   # (40, 97) mel-major
     axes[0].set_title('numpy from-scratch')
-    axes[1].imshow(log_mel_ta.T, origin='lower', aspect='auto')
+    axes[1].imshow(log_mel_ta, origin='lower', aspect='auto')   # (40, 97) mel-major
     axes[1].set_title('torchaudio')
     plt.show()

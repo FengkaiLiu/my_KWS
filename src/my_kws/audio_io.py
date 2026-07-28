@@ -16,7 +16,7 @@ def load_audio(
         target_length_s
 ):
     data, sr = sf.read(path)
-    print(f"shape={data.shape}, sr={sr}, dtype={data.dtype}")
+    # print(f"shape={data.shape}, sr={sr}, dtype={data.dtype}")
 
     #convert to float32
     data = data.astype(np.float32)
@@ -30,7 +30,7 @@ def load_audio(
         waveform = torch.from_numpy(data).unsqueeze(0) #shape: (1, n_samples)
         waveform = AF.resample(waveform, sr, target_sr)
         data = waveform.squeeze(0).numpy() #back to (n_samples,)
-    print(f"after resample: shape={data.shape}, sr={target_sr}")
+    # print(f"after resample: shape={data.shape}, sr={target_sr}")
 
     #pad / crop
     target_n = int(target_sr * target_length_s)

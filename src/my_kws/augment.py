@@ -32,16 +32,23 @@ def spec_augment(
         n_freq_masks: int = 1,
 ) -> np.ndarray:
     out = log_mel.copy()
-    n_frames = out.shape
-    n_mels = out.shape
+    n_mels, n_frames = out.shape
+    fill = out.mean()
 
     # freq mask
     for _ in range(n_freq_masks):
-        
+        f = np.random.randint(0, freq_mask_param + 1)
+        f0= np.random.randint(0, n_mels - f + 1)
+        out[f0 : f0 + f, :] = fill
 
     
     # time mask
     for _ in range(n_time_masks):
+        t = np.random.randint(0, time_mask_param + 1)
+        t0 = np.random.randint(0, n_frames - t + 1)
+        out[:, t0 : t0 + t] = fill
+
+    return out
 
 
 
