@@ -38,16 +38,14 @@ from .model import DSCNN
 # Stage 2: export
 # --------------------------------------------------------------------------
 
-def export_onnx(model: torch.nn.Module, out_path: Path) -> None:
+def export_onnx(model, out_path, dynamic: bool = True) -> None:
     model.eval()
     dummy = torch.randn(1, 1, 40, 98)
-    torch.onnx.export(
-        model, dummy, str(out_path),
-        input_names=["log_mel"],
-        output_names=["logit"],
-        dynamic_axes={"log_mel": {0: "batch"}, "logit": {0: "batch"}},
-        opset_version=17,
-    )
+    kwargs = dict(input_names=["log_mel"], output_names=["logit"],
+                  opset_version=18, external_data=False)
+    if dynamic:
+        kwargs["dynamic_axes"] = {"log_mel": {0: "batch"}, "logit": {0: "batch"}}
+    torch.onnx.export(model, dummy, str(out_path), **kwargs)
     print(f"[export] wrote {out_path} ({out_path.stat().st_size / 1024:.1f} KB)")
 
 
@@ -117,7 +115,7 @@ def quantize(fp32_path: Path, int8_path: Path, calib_dataset,
     quantize_static(
         str(src), str(int8_path),
         calibration_data_reader=RealDataCalibReader(),
-        quant_format=QuantFormat.QDQ,
+        quant_format=QuantFormat.QOperator,
         per_channel=True,
         weight_type=QuantType.QInt8,
         activation_type=QuantType.QUInt8,
@@ -137,6 +135,10 @@ def evaluate_onnx(onnx_path: Path, dataset, threshold: float,
 
     sess = ort.InferenceSession(str(onnx_path),
                                 providers=["CPUExecutionProvider"])
+    # respect a static batch dim if the model has one
+    dim0 = sess.get_inputs()[0].shape[0]
+    if isinstance(dim0, int):
+        batch_size = dim0
     scores, labels = [], []
     for start in range(0, len(dataset), batch_size):
         xs, ys = zip(*(dataset[i] for i in
@@ -187,8 +189,8 @@ def benchmark(onnx_path: Path, n_runs: int = 300) -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export + quantize + validate")
     parser.add_argument("--checkpoint", default="models/dscnn_best_cached.pt")
-    parser.add_argument("--threshold", type=float, default=0.85,
-                        help="deployment threshold chosen on val in notebook 02")
+    parser.add_argument("--threshold", type=float, default=0.98,
+                        help="deployment threshold, see nb04")
     parser.add_argument("--out-dir", default="models")
     args = parser.parse_args()
 
@@ -209,17 +211,43 @@ def main() -> None:
 
     # stages 2-4
     export_onnx(model, fp32_path)
-    parity_check(model, fp32_path, test_ds)
-    quantize(fp32_path, int8_path, train_ds)
+    # 固化部署配置进模型 metadata(int8 量化时会继承)
+    import onnx
+    mm = onnx.load(str(fp32_path))
+    for key, value in [("deployment_threshold", "0.98"),
+                       ("min_consecutive_hops", "3"),
+                       ("window_s", "1.0"), ("hop_s", "0.1")]:
+        meta = mm.metadata_props.add()
+        meta.key, meta.value = key, value
+    onnx.save(mm, str(fp32_path))
 
+    parity_check(model, fp32_path, test_ds)
+    static_path = out_dir / "dscnn_fp32_static.onnx"
+    export_onnx(model, static_path, dynamic=False)
+    quantize(static_path, int8_path, train_ds)   # 原来传的是 fp32_path
+    # 固化部署配置:量化后统一盖章,不依赖任何继承行为
+    import onnx
+    deploy_meta = {"deployment_threshold": "0.98",
+                   "min_consecutive_hops": "3",
+                   "window_s": "1.0", "hop_s": "0.1"}
+    for p in (fp32_path, static_path, int8_path):
+        mm = onnx.load(str(p))
+        existing = {q.key for q in mm.metadata_props}
+        for k, v in deploy_meta.items():
+            if k not in existing:
+                mp = mm.metadata_props.add()
+                mp.key, mp.value = k, v
+        onnx.save(mm, str(p))
+    print("[meta] deployment config stamped into all 3 onnx files")
     # stages 5-7
     print("\n[eval] test set @ threshold", args.threshold)
     results = {}
     for name, path in [("fp32", fp32_path), ("int8", int8_path)]:
         m = evaluate_onnx(path, test_ds, args.threshold)
         lat = benchmark(path)
-        results[name] = {**m, **lat,
-                         "size_kb": path.stat().st_size / 1024}
+        data_file = path.with_name(path.name + ".data")
+        total = path.stat().st_size + (data_file.stat().st_size if data_file.exists() else 0)
+        results[name] = {**m, **lat, "size_kb": total / 1024}
 
     ckpt_kb = Path(args.checkpoint).stat().st_size / 1024
     print(f"\n{'':10s} {'size KB':>8s} {'P':>6s} {'R':>6s} {'F1':>6s} "
