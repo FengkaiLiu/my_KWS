@@ -1,9 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import torchaudio.transforms as T
-import torch
 import scipy.fft
-import torchaudio.functional as F
 
 #MelSpectrogram from scratch
 
@@ -113,6 +109,12 @@ def mfcc(log_mel:np.ndarray, n_mfcc:int = 13) -> np.ndarray:
 
     #TEST
 if __name__ == "__main__":
+    # Heavy deps are test-only: keep them out of module scope so that
+    # deployment targets (HF Spaces / edge) only need numpy + scipy.
+    import matplotlib.pyplot as plt
+    import torch
+    import torchaudio.transforms as T
+    import torchaudio.functional as F
     x = np.arange(16000, dtype=np.float32)
     f = frame(x, 400, 160)
     print(f.shape)      #Expected (98, 400)
