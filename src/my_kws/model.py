@@ -42,7 +42,7 @@ class DSConvBlock(nn.Module):
 class DSCNN(nn.Module):
     """Small DS-CNN: stem conv -> 4 DS blocks -> global average pool -> FC.
 
-    ~65k parameters with default settings: small enough to quantize and
+    ~20k parameters with default settings: small enough to quantize and
     deploy on an embedded DSP later (Chunk 3 territory).
     """
 

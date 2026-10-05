@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.fft
+from functools import lru_cache
 
 #MelSpectrogram from scratch
 
@@ -54,6 +55,7 @@ def mel_to_hz(m):
     hz = 700 * (10**(m / 2595) - 1)
     return hz
 
+@lru_cache(maxsize=4)
 def mel_filterbank(sr: int, n_fft: int, n_mels: int, f_min: float = 0.0, f_max: float | None = None) -> np.ndarray:
     low_mel = hz_to_mel(0)
     high_mel = hz_to_mel(sr/2)
